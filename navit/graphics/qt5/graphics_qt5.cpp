@@ -413,14 +413,44 @@ draw_lines(struct graphics_priv* gr, struct graphics_gc_priv* gc, struct point* 
 static void
 draw_polygon(struct graphics_priv* gr, struct graphics_gc_priv* gc, struct point* p, int count)
 {
-    int i;
+    int i = 0;
+    int polygon_count = 0;
     QPolygon polygon;
+    struct point* start = NULL;
     //        dbg(lvl_debug,"enter gr=%p, gc=%p, (%d, %d)\n", gr, gc, p->x, p->y);
     if (gr->painter == NULL)
         return;
 
-    for (i = 0; i < count; i++)
-        polygon.putPoints(i, 1, p[i].x, p[i].y);
+    while (i < count) {
+        int index = 0;
+        bool done = false;
+        QPolygon current;
+        /* read coordinates until loop is detected.*/
+        while ((!done) && (i < count)) {
+            current.putPoints(index, 1, p[i].x, p[i].y);
+            index++;
+            /* don't have start point yet, so this is the start point */
+            if (start == NULL) {
+                start = &(p[i]);
+            } else {
+                if ((start->x == p[i].x) && (start->y == p[i].y)) {
+                    /* end of loop guessed */
+                    start = NULL;
+                    done = true;
+                }
+            }
+            i++;
+        }
+        if (polygon_count == 0) {
+            /* outer loop. just use as is */
+            polygon = current;
+        } else {
+            /* found a inner loop. Substract from what we already have */
+            polygon = polygon.subtracted(current);
+        }
+        polygon_count++;
+    }
+
     gr->painter->setPen(*gc->pen);
     gr->painter->setBrush(*gc->brush);
     /* if the polygon is transparent, we need to clear it first */
